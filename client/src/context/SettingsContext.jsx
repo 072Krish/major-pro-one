@@ -22,7 +22,6 @@ const DEFAULT_SETTINGS = {
 
     dateFormat: "DD/MM/YYYY",
 
-    // Frontend par existing values 12 aur 24 hi rakhenge.
     timeFormat: "12",
 
     notifications: true,
@@ -62,21 +61,32 @@ export function SettingsProvider({ children }) {
 
                 profile: {
                     ...DEFAULT_SETTINGS.profile,
-                    ...storedSettings.profile,
 
+                    // Current logged-in user ko
+                    // old cached user se priority milegi.
                     name:
-                        storedSettings.profile?.name ||
                         loggedInUser.name ||
                         "FinWise User",
 
                     email:
-                        storedSettings.profile?.email ||
                         loggedInUser.email ||
+                        "",
+
+                    phone:
+                        loggedInUser.phone ||
+                        "",
+
+                    avatar:
+                        loggedInUser.profileImage ||
                         "",
                 },
             };
+        } catch (error) {
+            console.error(
+                "Settings initialization error:",
+                error
+            );
 
-        } catch {
             return DEFAULT_SETTINGS;
         }
     });
@@ -86,7 +96,7 @@ export function SettingsProvider({ children }) {
 
 
     // ==========================================
-    // LOAD MONGODB SETTINGS
+    // LOAD CURRENT USER DATA FROM MONGODB
     // ==========================================
 
     useEffect(() => {
@@ -94,7 +104,9 @@ export function SettingsProvider({ children }) {
             const token =
                 localStorage.getItem("token");
 
-            if (!token) return;
+            if (!token) {
+                return;
+            }
 
             try {
                 setSettingsLoading(true);
@@ -105,8 +117,34 @@ export function SettingsProvider({ children }) {
                 const mongoSettings =
                     response.settings || {};
 
+                const mongoProfile =
+                    response.profile || {};
+
                 setSettings((previousSettings) => ({
                     ...previousSettings,
+
+                    profile: {
+                        ...previousSettings.profile,
+
+                        name:
+                            mongoProfile.name ||
+                            previousSettings.profile.name ||
+                            "FinWise User",
+
+                        email:
+                            mongoProfile.email ||
+                            previousSettings.profile.email ||
+                            "",
+
+                        phone:
+                            mongoProfile.phone ||
+                            "",
+
+                        avatar:
+                            mongoProfile.avatar ||
+                            previousSettings.profile.avatar ||
+                            "",
+                    },
 
                     notifications:
                         mongoSettings.notifications
@@ -134,6 +172,42 @@ export function SettingsProvider({ children }) {
                             : "12",
                 }));
 
+                // Current MongoDB profile ko
+                // user localStorage mein bhi sync karo.
+                if (
+                    mongoProfile.name ||
+                    mongoProfile.email
+                ) {
+                    const currentUser =
+                        JSON.parse(
+                            localStorage.getItem("user")
+                        ) || {};
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify({
+                            ...currentUser,
+
+                            name:
+                                mongoProfile.name ||
+                                currentUser.name,
+
+                            email:
+                                mongoProfile.email ||
+                                currentUser.email,
+
+                            phone:
+                                mongoProfile.phone ||
+                                "",
+
+                            profileImage:
+                                mongoProfile.avatar ||
+                                currentUser.profileImage ||
+                                "",
+                        })
+                    );
+                }
+
             } catch (error) {
                 console.error(
                     "Settings Load Error:",
@@ -151,7 +225,7 @@ export function SettingsProvider({ children }) {
 
 
     // ==========================================
-    // LOCAL SETTINGS CACHE
+    // LOCAL CACHE
     // ==========================================
 
     useEffect(() => {
@@ -272,7 +346,7 @@ export function SettingsProvider({ children }) {
             return response;
         }
 
-        // Theme aur 2FA abhi local/UI-only rahenge.
+        // Theme aur 2FA local/UI-only hain.
         setSettings((previousSettings) => ({
             ...previousSettings,
             ...updates,
@@ -288,15 +362,76 @@ export function SettingsProvider({ children }) {
     // UPDATE PROFILE
     // ==========================================
 
-const updateProfile = async (
-    profileUpdates
-) => {
+    const updateProfile = async (
+        profileUpdates
+    ) => {
+        const response =
+            await updateProfileAPI(
+                profileUpdates
+            );
 
-    const response =
-        await updateProfileAPI(profileUpdates);
+        const updatedUser =
+            response.user || {};
 
-    const updatedUser =
-        response.user;
+        setSettings((previousSettings) => ({
+            ...previousSettings,
+
+            profile: {
+                ...previousSettings.profile,
+
+                name:
+                    updatedUser.name ||
+                    previousSettings.profile.name,
+
+                email:
+                    updatedUser.email ||
+                    previousSettings.profile.email,
+
+                phone:
+                    updatedUser.phone ||
+                    "",
+
+                avatar:
+                    updatedUser.profileImage ||
+                    previousSettings.profile.avatar,
+            },
+        }));
+
+        const currentUser =
+            JSON.parse(
+                localStorage.getItem("user")
+            ) || {};
+
+        localStorage.setItem(
+            "user",
+            JSON.stringify({
+                ...currentUser,
+                ...updatedUser,
+
+                name:
+                    updatedUser.name ||
+                    currentUser.name,
+
+                email:
+                    updatedUser.email ||
+                    currentUser.email,
+
+                phone:
+                    updatedUser.phone ||
+                    "",
+
+                profileImage:
+                    updatedUser.profileImage ||
+                    currentUser.profileImage ||
+                    "",
+            })
+        );
+
+        return response;
+    };
+
+    const syncLoggedInUser = (userData) => {
+    if (!userData) return;
 
     setSettings((previousSettings) => ({
         ...previousSettings,
@@ -304,37 +439,41 @@ const updateProfile = async (
         profile: {
             ...previousSettings.profile,
 
-            name: updatedUser.name,
-            email: updatedUser.email,
-            phone: updatedUser.phone,
+            name:
+                userData.name ||
+                previousSettings.profile.name ||
+                "",
+
+            email:
+                userData.email ||
+                previousSettings.profile.email ||
+                "",
+
+            phone:
+                userData.phone ||
+                previousSettings.profile.phone ||
+                "",
+
             avatar:
-                updatedUser.profileImage ||
-                previousSettings.profile.avatar,
+                userData.profileImage ||
+                previousSettings.profile.avatar ||
+                "",
         },
     }));
-
-    localStorage.setItem(
-        "user",
-        JSON.stringify(updatedUser)
-    );
-
-    return response;
-
 };
 
-// ==========================================
-// CHANGE PASSWORD
-// ==========================================
 
-const changePassword = async (
-    passwordData
-) => {
+    // ==========================================
+    // CHANGE PASSWORD
+    // ==========================================
 
-    return await changePasswordAPI(
+    const changePassword = async (
         passwordData
-    );
-
-};
+    ) => {
+        return await changePasswordAPI(
+            passwordData
+        );
+    };
 
 
     // ==========================================
@@ -348,12 +487,13 @@ const value = useMemo(
         updateSettings,
         updateProfile,
         changePassword,
+        syncLoggedInUser,
     }),
-        [
-            settings,
-            settingsLoading,
-        ]
-    );
+    [
+        settings,
+        settingsLoading,
+    ]
+);
 
     return (
         <SettingsContext.Provider value={value}>

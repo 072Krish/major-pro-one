@@ -19,13 +19,15 @@ import { useSettings } from "../../context/SettingsContext";
 
 
 function Dashboard() {
-    const { settings } = useSettings();
+    const { settings, settingsLoading } = useSettings();
     useAutoLogout();
 
-    const user = JSON.parse(localStorage.getItem("user")) || {};
+    const userName =
+        settings?.profile?.name?.trim() ||
+        "FinWise User";
 
-    const userName = settings.profile.name || "FinWise User";
-    const userInitial = settings.profile.name ? settings.profile.name.charAt(0).toUpperCase() : "U";
+    const userInitial =
+        userName.charAt(0).toUpperCase();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
@@ -48,105 +50,106 @@ function Dashboard() {
             title: "", amount: "", type: "", category: "", date: "",
         });
 
-const fetchDashboardData = async (
-    showSkeleton = false
-) => {
-    try {
-        if (showSkeleton) {
-            setPageLoading(true);
-        }
+    const fetchDashboardData = async (
+        showSkeleton = false
+    ) => {
+        try {
+            if (showSkeleton) {
+                setPageLoading(true);
+            }
 
-        const startTime = Date.now();
+            const startTime = Date.now();
 
-        const [
-            transactionResponse,
-            budgetResponse,
-            goalsResponse,
-        ] = await Promise.all([
-            getTransactionsAPI(),
-            getBudgetAPI(),
-            getGoalsAPI(),
-        ]);
+            const [
+                transactionResponse,
+                budgetResponse,
+                goalsResponse,
+            ] = await Promise.all([
+                getTransactionsAPI(),
+                getBudgetAPI(),
+                getGoalsAPI(),
+            ]);
 
-        setTransactions(
-            transactionResponse.transactions || []
-        );
+            setTransactions(
+                transactionResponse.transactions || []
+            );
 
-        setDashboardMonthlyBudget(
-            Number(
-                budgetResponse.budget?.monthlyBudget ||
-                0
-            )
-        );
+            setDashboardMonthlyBudget(
+                Number(
+                    budgetResponse.budget?.monthlyBudget ||
+                    0
+                )
+            );
 
-        setDashboardGoals(
-            goalsResponse.goals || []
-        );
+            setDashboardGoals(
+                goalsResponse.goals || []
+            );
 
-        if (showSkeleton) {
-            const elapsed =
-                Date.now() - startTime;
+            if (showSkeleton) {
+                const elapsed =
+                    Date.now() - startTime;
 
-            const minimumDelay = 1800;
+                const minimumDelay = 1800;
 
-            if (elapsed < minimumDelay) {
-                await new Promise((resolve) =>
-                    setTimeout(
-                        resolve,
-                        minimumDelay - elapsed
-                    )
-                );
+                if (elapsed < minimumDelay) {
+                    await new Promise((resolve) =>
+                        setTimeout(
+                            resolve,
+                            minimumDelay - elapsed
+                        )
+                    );
+                }
+            }
+
+        } catch (error) {
+            toast.error(
+                error.response?.data?.message ||
+                "Failed to load dashboard data"
+            );
+
+        } finally {
+            if (showSkeleton) {
+                setPageLoading(false);
             }
         }
-
-    } catch (error) {
-        toast.error(
-            error.response?.data?.message ||
-            "Failed to load dashboard data"
-        );
-
-    } finally {
-        if (showSkeleton) {
-            setPageLoading(false);
-        }
-    }
-};
-
-useEffect(() => {
-    fetchDashboardData(true);}, []);
-    useEffect(() => {
-
-    const handleDashboardRefresh = () => {
-
-        fetchDashboardData(false);
-
     };
 
-    window.addEventListener(
-        "focus",
-        handleDashboardRefresh
-    );
+    useEffect(() => {
+        fetchDashboardData(true);
+    }, []);
+    useEffect(() => {
 
-    document.addEventListener(
-        "visibilitychange",
-        handleDashboardRefresh
-    );
+        const handleDashboardRefresh = () => {
 
-    return () => {
+            fetchDashboardData(false);
 
-        window.removeEventListener(
+        };
+
+        window.addEventListener(
             "focus",
             handleDashboardRefresh
         );
 
-        document.removeEventListener(
+        document.addEventListener(
             "visibilitychange",
             handleDashboardRefresh
         );
 
-    };
+        return () => {
 
-}, []);
+            window.removeEventListener(
+                "focus",
+                handleDashboardRefresh
+            );
+
+            document.removeEventListener(
+                "visibilitychange",
+                handleDashboardRefresh
+            );
+
+        };
+
+    }, []);
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (
@@ -158,12 +161,12 @@ useEffect(() => {
         };
 
         document.addEventListener(
-            "mousedown",handleClickOutside
+            "mousedown", handleClickOutside
         );
 
         return () =>
             document.removeEventListener(
-                "mousedown",handleClickOutside
+                "mousedown", handleClickOutside
             );
     }, []);
 
@@ -219,45 +222,45 @@ useEffect(() => {
         .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     const dashboardBudgetPercent = dashboardMonthlyBudget > 0 ? Math.min(
-                Math.round(
-                    (currentMonthExpense / dashboardMonthlyBudget) * 100),100) : 0;
+        Math.round(
+            (currentMonthExpense / dashboardMonthlyBudget) * 100), 100) : 0;
 
     const dashboardBudgetRemaining = dashboardMonthlyBudget - currentMonthExpense;
     const recentTransactions = transactions.slice(0, 3);
 
-const activeGoal = useMemo(() => {
-    if (dashboardGoals.length === 0) {
-        return null;
-    }
+    const activeGoal = useMemo(() => {
+        if (dashboardGoals.length === 0) {
+            return null;
+        }
 
-    const sortedGoals = [
-        ...dashboardGoals,
-    ].sort((a, b) => {
-        return (
-            new Date(a.createdAt || 0) -
-            new Date(b.createdAt || 0)
-        );
-    });
-
-    const ongoingGoal =
-        sortedGoals.find((goal) => {
+        const sortedGoals = [
+            ...dashboardGoals,
+        ].sort((a, b) => {
             return (
-                Number(
-                    goal.savedAmount || 0
-                ) <
-                Number(
-                    goal.targetAmount || 0
-                )
+                new Date(a.createdAt || 0) -
+                new Date(b.createdAt || 0)
             );
         });
 
-    if (ongoingGoal) {
-        return ongoingGoal;
-    }
+        const ongoingGoal =
+            sortedGoals.find((goal) => {
+                return (
+                    Number(
+                        goal.savedAmount || 0
+                    ) <
+                    Number(
+                        goal.targetAmount || 0
+                    )
+                );
+            });
 
-    return sortedGoals[0];
+        if (ongoingGoal) {
+            return ongoingGoal;
+        }
 
-}, [dashboardGoals]);
+        return sortedGoals[0];
+
+    }, [dashboardGoals]);
 
     const goalTarget = Number(activeGoal?.targetAmount || 0);
     const goalSaved = Number(activeGoal?.savedAmount || 0);
@@ -301,8 +304,9 @@ const activeGoal = useMemo(() => {
         });
     }
 
-    const dashboardNotifications = [...trendNotifications,...storedNotifications,];
-    const handleSubmit = async (e) => {e.preventDefault();
+    const dashboardNotifications = [...trendNotifications, ...storedNotifications,];
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
         if (
             !formData.title ||
@@ -345,7 +349,7 @@ const activeGoal = useMemo(() => {
         } catch (error) {
             toast.error(
                 error.response?.data?.message || "Failed to add transaction");
-        } finally {setSaving(false);}
+        } finally { setSaving(false); }
     };
 
     return (
@@ -385,15 +389,15 @@ const activeGoal = useMemo(() => {
                         Budget
                     </Link>
 
-                    <a href="/goals">
+                    <Link to="/goals">
                         <i className="fa-solid fa-bullseye"></i>
                         Goals
-                    </a>
+                    </Link>
 
-                    <a href="/settings">
+                    <Link to="/settings">
                         <i className="fa-solid fa-gear"></i>
                         Settings
-                    </a>
+                    </Link>
                 </nav>
 
                 <br />
@@ -492,7 +496,7 @@ const activeGoal = useMemo(() => {
                                         <h4>Notifications</h4>
                                         <span>
                                             {
-                                                Math.min(dashboardNotifications.length,5)
+                                                Math.min(dashboardNotifications.length, 5)
                                             }
                                         </span>
                                     </div>
@@ -537,348 +541,349 @@ const activeGoal = useMemo(() => {
                 {/* CONTENT */}
                 <section className="dashboard-content">
                     {
-                        pageLoading ? (
+                        pageLoading || settingsLoading ? (
                             <DashboardSkeleton />
                         ) : (<>
-                                <div className="overview-header">
-                                    <span className="section-label">
-                                        FINANCIAL SUMMARY
-                                    </span>
+                            <div className="overview-header">
+                                <span className="section-label">
+                                    FINANCIAL SUMMARY
+                                </span>
 
-                                    <button
-                                        className="add-btn"
-                                        onClick={() => setModalOpen(true)}>
+                                <button
+                                    className="add-btn"
+                                    onClick={() => setModalOpen(true)}>
 
-                                        <i className="fa-solid fa-plus"></i>
-                                        Add Transaction
-                                    </button>
-                                </div>
+                                    <i className="fa-solid fa-plus"></i>
+                                    Add Transaction
+                                </button>
+                            </div>
 
-                                {/* OVERVIEW CARDS */}
-                                <div className="overview-grid">
-                                    <div className="overview-card balance">
-                                        <div className="card-icon">
-                                            <i className="fa-solid fa-wallet"></i>
-                                        </div>
-
-                                        <div>
-                                            <p>Total Balance</p>
-                                            <h2>{formatCurrency(totalBalance)}</h2>
-                                            <span id="balanceStatus">
-                                                <i className="fa-solid fa-arrow-up"></i>
-                                                {balancePercent}%
-                                            </span>
-                                        </div>
+                            {/* OVERVIEW CARDS */}
+                            <div className="overview-grid">
+                                <div className="overview-card balance">
+                                    <div className="card-icon">
+                                        <i className="fa-solid fa-wallet"></i>
                                     </div>
 
-                                    <div className="overview-card income">
-                                        <div className="card-icon">
-                                            <i className="fa-solid fa-arrow-trend-up"></i>
-                                        </div>
-
-                                        <div>
-                                            <p>Total Income</p>
-                                            <h2>{formatCurrency(totalIncome)}</h2>
-                                            <span id="incomeStatus">
-                                                <i className="fa-solid fa-arrow-up"></i>
-                                                100%
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="overview-card expense">
-                                        <div className="card-icon">
-                                            <i className="fa-solid fa-arrow-trend-down"></i>
-                                        </div>
-
-                                        <div>
-                                            <p>Total Expense</p>
-                                            <h2>{formatCurrency(totalExpense)}</h2>
-                                            <span id="expenseStatus">
-                                                <i className="fa-solid fa-arrow-down"></i>
-                                                {expensePercent}%
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="overview-card savings">
-                                        <div className="card-icon">
-                                            <i className="fa-solid fa-sack-dollar"></i>
-                                        </div>
-
-                                        <div>
-                                            <p>Total Savings</p>
-                                            <h2>{formatCurrency(totalSavings)}</h2>
-                                            <span id="savingsStatus">
-                                                <i className="fa-solid fa-arrow-up"></i>
-                                                {savingsPercent}%
-                                            </span>
-                                        </div>
+                                    <div>
+                                        <p>Total Balance</p>
+                                        <h2>{formatCurrency(totalBalance)}</h2>
+                                        <span id="balanceStatus">
+                                            <i className="fa-solid fa-arrow-up"></i>
+                                            {balancePercent}%
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* CHARTS */}
-
-                                <div className="dashboard-grid">
-                                    <div className="panel large-panel">
-                                        <div className="panel-header">
-
-                                            <div>
-                                                <h3>Income vs Expense</h3>
-                                                <p>Monthly financial comparison</p>
-                                            </div>
-                                            <span>This Year</span>
-                                        </div>
-
-                                        <div className="chart-container">
-                                            <IncomeExpenseChart transactions={transactions} />
-                                        </div>
+                                <div className="overview-card income">
+                                    <div className="card-icon">
+                                        <i className="fa-solid fa-arrow-trend-up"></i>
                                     </div>
 
-                                    <div className="panel">
-                                        <div className="panel-header">
-
-                                            <div>
-                                                <h3>Expense Categories</h3>
-                                                <p>Where your money goes</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="chart-container small">
-                                            <ExpenseCategoryChart transactions={transactions} />
-                                        </div>
+                                    <div>
+                                        <p>Total Income</p>
+                                        <h2>{formatCurrency(totalIncome)}</h2>
+                                        <span id="incomeStatus">
+                                            <i className="fa-solid fa-arrow-up"></i>
+                                            100%
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* RECENT TRANSACTIONS + SMART INSIGHTS */}
-                                <div className="dashboard-grid second-grid">
-                                    {/* Recent Transactions */}
-                                    <div className="panel">
-                                        <div className="panel-header">
+                                <div className="overview-card expense">
+                                    <div className="card-icon">
+                                        <i className="fa-solid fa-arrow-trend-down"></i>
+                                    </div>
 
-                                            <div>
-                                                <h3>Recent Transactions</h3>
-                                                <p>Your latest financial activities</p>
-                                            </div>
+                                    <div>
+                                        <p>Total Expense</p>
+                                        <h2>{formatCurrency(totalExpense)}</h2>
+                                        <span id="expenseStatus">
+                                            <i className="fa-solid fa-arrow-down"></i>
+                                            {expensePercent}%
+                                        </span>
+                                    </div>
+                                </div>
 
-                                            <Link
-                                                to="/transactions"
-                                                className="view-all"> View All </Link>
+                                <div className="overview-card savings">
+                                    <div className="card-icon">
+                                        <i className="fa-solid fa-sack-dollar"></i>
+                                    </div>
+
+                                    <div>
+                                        <p>Total Savings</p>
+                                        <h2>{formatCurrency(totalSavings)}</h2>
+                                        <span id="savingsStatus">
+                                            <i className="fa-solid fa-arrow-up"></i>
+                                            {savingsPercent}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* CHARTS */}
+
+                            <div className="dashboard-grid">
+                                <div className="panel large-panel">
+                                    <div className="panel-header">
+
+                                        <div>
+                                            <h3>Income vs Expense</h3>
+                                            <p>Monthly financial comparison</p>
+                                        </div>
+                                        <span>This Year</span>
+                                    </div>
+
+                                    <div className="chart-container">
+                                        <IncomeExpenseChart transactions={transactions} />
+                                    </div>
+                                </div>
+
+                                <div className="panel">
+                                    <div className="panel-header">
+
+                                        <div>
+                                            <h3>Expense Categories</h3>
+                                            <p>Where your money goes</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="chart-container small">
+                                        <ExpenseCategoryChart transactions={transactions} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RECENT TRANSACTIONS + SMART INSIGHTS */}
+                            <div className="dashboard-grid second-grid">
+                                {/* Recent Transactions */}
+                                <div className="panel">
+                                    <div className="panel-header">
+
+                                        <div>
+                                            <h3>Recent Transactions</h3>
+                                            <p>Your latest financial activities</p>
                                         </div>
 
-                                        <div className="transaction-list">
-                                            {recentTransactions.length === 0 ? (
-                                                <div className="empty-transactions">
-                                                    <i className="fa-solid fa-wallet"></i>
-                                                    <h3>No Transactions Yet</h3>
-                                                    <p>
-                                                        Click <strong>Add Transaction</strong> to start tracking your finances.
-                                                    </p>
-                                                </div>
-                                            ) : (
+                                        <Link
+                                            to="/transactions"
+                                            className="view-all"> View All </Link>
+                                    </div>
 
-                                                recentTransactions.map((transaction) => {
-                                                    const isIncome =
-                                                        transaction.type === "income";
+                                    <div className="transaction-list">
+                                        {recentTransactions.length === 0 ? (
+                                            <div className="empty-transactions">
+                                                <i className="fa-solid fa-wallet"></i>
+                                                <h3>No Transactions Yet</h3>
+                                                <p>
+                                                    Click <strong>Add Transaction</strong> to start tracking your finances.
+                                                </p>
+                                            </div>
+                                        ) : (
 
-                                                    return (
-                                                        <div
-                                                            className="transaction-item"
-                                                            key={transaction._id}>
-                                                            <div className="transaction-left">
-                                                                <div
-                                                                    className={`transaction-icon ${isIncome
-                                                                        ? "income-icon"
-                                                                        : "expense-icon"
-                                                                        }`}>
-                                                                    <i
-                                                                        className={`fa-solid ${isIncome
-                                                                            ? "fa-arrow-trend-up"
-                                                                            : "fa-arrow-trend-down"
-                                                                            }`}
-                                                                    ></i>
-                                                                </div>
+                                            recentTransactions.map((transaction) => {
+                                                const isIncome =
+                                                    transaction.type === "income";
 
-                                                                <div>
-                                                                    <h4>{transaction.title}</h4>
-                                                                    <span>
-                                                                        {transaction.category} • {formatDate(transaction.date)}
-                                                                    </span>
-                                                                </div>
+                                                return (
+                                                    <div
+                                                        className="transaction-item"
+                                                        key={transaction._id}>
+                                                        <div className="transaction-left">
+                                                            <div
+                                                                className={`transaction-icon ${isIncome
+                                                                    ? "income-icon"
+                                                                    : "expense-icon"
+                                                                    }`}>
+                                                                <i
+                                                                    className={`fa-solid ${isIncome
+                                                                        ? "fa-arrow-trend-up"
+                                                                        : "fa-arrow-trend-down"
+                                                                        }`}
+                                                                ></i>
                                                             </div>
 
-                                                            <strong
-                                                                className={
-                                                                    isIncome
-                                                                        ? "income-text"
-                                                                        : "expense-text"
-                                                                }>
-
-                                                                {isIncome ? "+ " : "- "}
-                                                                {formatCurrency(transaction.amount)}
-                                                            </strong>
+                                                            <div>
+                                                                <h4>{transaction.title}</h4>
+                                                                <span>
+                                                                    {transaction.category} • {formatDate(transaction.date)}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                    );
-                                                })
-                                            )}
-                                        </div>
-                                    </div>
 
-                                    {/* Smart Insights */}
-                                    <div className="panel">
-                                        <div className="panel-header">
-                                            <h3>Smart Insights</h3>
-                                        </div>
+                                                        <strong
+                                                            className={
+                                                                isIncome
+                                                                    ? "income-text"
+                                                                    : "expense-text"
+                                                            }>
 
-                                        <div className="insight-box success">
-                                            <i className="fa-solid fa-circle-check"></i>
-                                            <div>
-                                                <h4>
-                                                    {savingsPercent >= 50
-                                                        ? "Excellent Saving"
-                                                        : "Savings Alert"}
-                                                </h4>
-                                                <p>
-                                                    {totalIncome > 0
-                                                        ? savingsPercent >= 50
-                                                            ? `You saved ${savingsPercent}% of your income. Great job!`
-                                                            : `Your saving rate is ${savingsPercent}%. Try to reduce expenses.`
-                                                        : "Add income and expenses to generate saving insights."}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="insight-box warning">
-                                            <i className="fa-solid fa-triangle-exclamation"></i>
-                                            <div>
-                                                <h4>
-                                                    {expensePercent > 70
-                                                        ? "High Spending"
-                                                        : "Expense Tracking"}
-                                                </h4>
-                                                <p>
-                                                    {totalExpense > 0
-                                                        ? `Your expense usage is ${expensePercent}% of your income.`
-                                                        : "Add expense transactions to see spending insights."}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="insight-box info">
-                                            <i className="fa-solid fa-lightbulb"></i>
-                                            <div>
-                                                <h4>
-                                                    {totalExpense > totalIncome
-                                                        ? "Budget Warning"
-                                                        : "Smart Suggestion"}
-                                                </h4>
-                                                <p>
-                                                    {totalExpense > totalIncome
-                                                        ? "Your expenses are higher than income. Review your spending."
-                                                        : "Maintain this spending pattern to build stronger savings."}
-                                                </p>
-                                            </div>
-                                        </div>
+                                                            {isIncome ? "+ " : "- "}
+                                                            {formatCurrency(transaction.amount)}
+                                                        </strong>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* BUDGET + GOAL */}
-                                <div className="dashboard-grid third-grid">
-                                    {/* Monthly Budget */}
-                                    <div className="panel">
-                                        <div className="panel-header">
+                                {/* Smart Insights */}
+                                <div className="panel">
+                                    <div className="panel-header">
+                                        <h3>Smart Insights</h3>
+                                    </div>
 
-                                            <div>
-                                                <h3>Monthly Budget</h3>
-                                                <p>Your budget usage this month</p>
-                                            </div>
+                                    <div className="insight-box success">
+                                        <i className="fa-solid fa-circle-check"></i>
+                                        <div>
+                                            <h4>
+                                                {savingsPercent >= 50
+                                                    ? "Excellent Saving"
+                                                    : "Savings Alert"}
+                                            </h4>
+                                            <p>
+                                                {totalIncome > 0
+                                                    ? savingsPercent >= 50
+                                                        ? `You saved ${savingsPercent}% of your income. Great job!`
+                                                        : `Your saving rate is ${savingsPercent}%. Try to reduce expenses.`
+                                                    : "Add income and expenses to generate saving insights."}
+                                            </p>
+                                        </div>
+                                    </div>
 
-                                            <span>{dashboardBudgetPercent}% Used</span>
+                                    <div className="insight-box warning">
+                                        <i className="fa-solid fa-triangle-exclamation"></i>
+                                        <div>
+                                            <h4>
+                                                {expensePercent > 70
+                                                    ? "High Spending"
+                                                    : "Expense Tracking"}
+                                            </h4>
+                                            <p>
+                                                {totalExpense > 0
+                                                    ? `Your expense usage is ${expensePercent}% of your income.`
+                                                    : "Add expense transactions to see spending insights."}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="insight-box info">
+                                        <i className="fa-solid fa-lightbulb"></i>
+                                        <div>
+                                            <h4>
+                                                {totalExpense > totalIncome
+                                                    ? "Budget Warning"
+                                                    : "Smart Suggestion"}
+                                            </h4>
+                                            <p>
+                                                {totalExpense > totalIncome
+                                                    ? "Your expenses are higher than income. Review your spending."
+                                                    : "Maintain this spending pattern to build stronger savings."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BUDGET + GOAL */}
+                            <div className="dashboard-grid third-grid">
+                                {/* Monthly Budget */}
+                                <div className="panel">
+                                    <div className="panel-header">
+
+                                        <div>
+                                            <h3>Monthly Budget</h3>
+                                            <p>Your budget usage this month</p>
                                         </div>
 
-                                        <div className="budget-box">
-                                            <div
-                                                className="budget-circle"
-                                                style={{
-                                                    background: `conic-gradient(
+                                        <span>{dashboardBudgetPercent}% Used</span>
+                                    </div>
+
+                                    <div className="budget-box">
+                                        <div
+                                            className="budget-circle"
+                                            style={{
+                                                background: `conic-gradient(
             #22C55E 0deg,
             #22C55E ${dashboardBudgetPercent * 3.6}deg,
             #1E293B ${dashboardBudgetPercent * 3.6}deg,
-            #1E293B 360deg)`,}}>
-                                                <span>{dashboardBudgetPercent}%</span>
-                                            </div>
-
-                                            <div className="budget-stats">
-                                                <div className="budget-stat">
-                                                    <span>Total Budget</span>
-                                                    <h4>{formatCurrency(dashboardMonthlyBudget)}</h4>
-                                                </div>
-
-                                                <div className="budget-stat">
-                                                    <span>Spent</span>
-                                                    <h4>{formatCurrency(currentMonthExpense)}</h4>
-                                                </div>
-
-                                                <div className="budget-stat">
-                                                    <span>Remaining</span>
-                                                    <h4>{formatCurrency(Math.max(dashboardBudgetRemaining, 0))}</h4>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Savings Goal Panel */}
-                                    <div className="panel">
-                                        <div className="panel-header">
-                                            <div>
-                                                <h3>Savings Goal</h3>
-                                                <p>
-                                                    {activeGoal
-                                                        ? (goalProgress >= 100 ? "Goal Achieved! 🎉" : "Current Goal Progress")
-                                                        : "No goal created yet"}
-                                                </p>
-                                            </div>
-                                            <span>{goalProgress}%</span>
+            #1E293B 360deg)`,
+                                            }}>
+                                            <span>{dashboardBudgetPercent}%</span>
                                         </div>
 
-                                        <div className="goal-box">
-                                            {activeGoal ? (
-                                                <>
-                                                    <div className="goal-top">
-                                                        <div>
-                                                            <h4>{activeGoal.title}</h4>
-                                                            <p>
-                                                                {formatCurrency(goalSaved)} saved of{" "}
-                                                                {formatCurrency(goalTarget)} goal
-                                                            </p>
-                                                        </div>
-                                                        <i className="fa-solid fa-bullseye"></i>
-                                                    </div>
+                                        <div className="budget-stats">
+                                            <div className="budget-stat">
+                                                <span>Total Budget</span>
+                                                <h4>{formatCurrency(dashboardMonthlyBudget)}</h4>
+                                            </div>
 
-                                                    <div className="progress-bar">
-                                                        <span style={{ width: `${goalProgress}%` }}></span>
-                                                    </div>
+                                            <div className="budget-stat">
+                                                <span>Spent</span>
+                                                <h4>{formatCurrency(currentMonthExpense)}</h4>
+                                            </div>
 
-                                                    <div className="goal-meta">
-                                                        <p>{formatCurrency(goalSaved)}</p>
-                                                        <p>{formatCurrency(goalTarget)}</p>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="empty-transactions">
-                                                    <i className="fa-solid fa-bullseye"></i>
-                                                    <h3>No Goal Yet</h3>
-                                                    <p>Create your first goal to track it here.</p>
-                                                </div>
-                                            )}
+                                            <div className="budget-stat">
+                                                <span>Remaining</span>
+                                                <h4>{formatCurrency(Math.max(dashboardBudgetRemaining, 0))}</h4>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </>
+
+                                {/* Savings Goal Panel */}
+                                <div className="panel">
+                                    <div className="panel-header">
+                                        <div>
+                                            <h3>Savings Goal</h3>
+                                            <p>
+                                                {activeGoal
+                                                    ? (goalProgress >= 100 ? "Goal Achieved! 🎉" : "Current Goal Progress")
+                                                    : "No goal created yet"}
+                                            </p>
+                                        </div>
+                                        <span>{goalProgress}%</span>
+                                    </div>
+
+                                    <div className="goal-box">
+                                        {activeGoal ? (
+                                            <>
+                                                <div className="goal-top">
+                                                    <div>
+                                                        <h4>{activeGoal.title}</h4>
+                                                        <p>
+                                                            {formatCurrency(goalSaved)} saved of{" "}
+                                                            {formatCurrency(goalTarget)} goal
+                                                        </p>
+                                                    </div>
+                                                    <i className="fa-solid fa-bullseye"></i>
+                                                </div>
+
+                                                <div className="progress-bar">
+                                                    <span style={{ width: `${goalProgress}%` }}></span>
+                                                </div>
+
+                                                <div className="goal-meta">
+                                                    <p>{formatCurrency(goalSaved)}</p>
+                                                    <p>{formatCurrency(goalTarget)}</p>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="empty-transactions">
+                                                <i className="fa-solid fa-bullseye"></i>
+                                                <h3>No Goal Yet</h3>
+                                                <p>Create your first goal to track it here.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
                         )
                     }
                 </section>
-                
+
                 {/* ADD TRANSACTION MODAL */}
 
                 <div
@@ -911,7 +916,7 @@ const activeGoal = useMemo(() => {
                                     placeholder="e.g. Salary, Food, Rent"
                                     value={formData.title}
                                     onChange={handleChange}
-                                    required/>
+                                    required />
                             </div>
 
                             <div className="form-group">
@@ -922,7 +927,7 @@ const activeGoal = useMemo(() => {
                                     placeholder="Enter amount"
                                     value={formData.amount}
                                     onChange={handleChange}
-                                    required/>
+                                    required />
                             </div>
 
                             <div className="form-row">
@@ -966,7 +971,7 @@ const activeGoal = useMemo(() => {
                                     value={formData.date}
                                     onChange={handleChange}
                                     max={new Date().toISOString().split("T")[0]}
-                                    required/>
+                                    required />
                             </div>
 
                             <button

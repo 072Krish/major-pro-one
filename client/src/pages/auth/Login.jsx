@@ -3,9 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import "../../assets/css/auth/login.css";
 import API from "../../services/api";
+import { useSettings } from "../../context/SettingsContext";
 
 function Login() {
     const navigate = useNavigate();
+    const { syncLoggedInUser } = useSettings();
 
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -25,39 +27,58 @@ function Login() {
         });
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        if (!formData.email || !formData.password) {
-            toast.error("Please fill all fields.");
-            return;
-        }
+    if (!formData.email || !formData.password) {
+        toast.error("Please fill all fields.");
+        return;
+    }
 
+    try {
         setLoading(true);
 
-try {
-    const response = await API.post("/auth/login", {
-        email: formData.email,
-        password: formData.password,
-    });
+        const response = await API.post(
+            "/auth/login",
+            {
+                email: formData.email,
+                password: formData.password,
+            }
+        );
 
-    localStorage.setItem("token", response.data.token);
-    localStorage.setItem("user", JSON.stringify(response.data.user));
+        const loggedInUser =
+            response.data.user;
 
-    toast.success(response.data.message || "Login successful.");
+        localStorage.setItem(
+            "token",
+            response.data.token
+        );
 
-    setTimeout(() => {
-        navigate("/dashboard");
-    }, 800);
+        localStorage.setItem(
+            "user",
+            JSON.stringify(loggedInUser)
+        );
 
-} catch (error) {
-    toast.error(
-        error.response?.data?.message || "Login failed."
-    );
-} finally {
-    setLoading(false);
-}
-    };
+        syncLoggedInUser(loggedInUser);
+
+        toast.success(
+            response.data.message ||
+            "Login successful."
+        );
+
+        setTimeout(() => {
+            navigate("/dashboard");
+        }, 800);
+
+    } catch (error) {
+        toast.error(
+            error.response?.data?.message ||
+            "Login failed."
+        );
+    } finally {
+        setLoading(false);
+    }
+};
 
     const handleForgotPassword = (e) => {
         e.preventDefault();

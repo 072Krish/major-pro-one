@@ -20,7 +20,9 @@ const getSettings = async (req, res) => {
     try {
         const user = await User.findById(
             req.user._id
-        ).select("settings");
+        ).select(
+            "name email phone profileImage settings"
+        );
 
         if (!user) {
             return res.status(404).json({
@@ -66,6 +68,14 @@ const getSettings = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+
+            profile: {
+                name: user.name || "",
+                email: user.email || "",
+                phone: user.phone || "",
+                avatar: user.profileImage || "",
+            },
+
             settings,
         });
 
