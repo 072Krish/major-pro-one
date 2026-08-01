@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_URL =
-    "http://localhost:5000/api/budget";
+    "https://finwise-server-tx10.onrender.com/api/budget";
 
 const getAuthConfig = () => {
     const token =
